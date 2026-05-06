@@ -1,3 +1,6 @@
+import { slotQuadrant } from './gridSpec'
+import type { QuadrantCount } from './types'
+
 /** Products k*f for k in 1..9 on the reference factor strip. */
 export function productTreeValues(f: number): Set<number> {
   const s = new Set<number>()
@@ -14,6 +17,23 @@ export function slotsForFactorTree(
   const tree = productTreeValues(f)
   const out = new Set<number>()
   productsBySlot.forEach((p, slot) => {
+    if (tree.has(p)) out.add(slot)
+  })
+  return out
+}
+
+/** Factor-tree highlights scoped to the active quadrant (factor rail targeting). */
+export function slotsForFactorTreeActiveQuadrant(
+  productsBySlot: readonly number[],
+  f: number,
+  activeQuadrant: number,
+  quadrantCount: QuadrantCount,
+  cols: number,
+): Set<number> {
+  const tree = productTreeValues(f)
+  const out = new Set<number>()
+  productsBySlot.forEach((p, slot) => {
+    if (slotQuadrant(slot, quadrantCount, cols) !== activeQuadrant) return
     if (tree.has(p)) out.add(slot)
   })
   return out

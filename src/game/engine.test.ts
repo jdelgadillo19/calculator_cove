@@ -37,7 +37,7 @@ describe('win detection', () => {
     owners[1] = 0
     owners[2] = 0
     owners[3] = 0
-    expect(computeWinner(owners)).toBe(0)
+    expect(computeWinner(owners, 6, 6)).toBe(0)
   })
 
   it('is unchanged when only products permute (ownership pattern)', () => {
@@ -46,7 +46,7 @@ describe('win detection', () => {
     owners[12] = 1
     owners[18] = 1
     owners[24] = 1
-    expect(computeWinner(owners)).toBe(1)
+    expect(computeWinner(owners, 6, 6)).toBe(1)
   })
 })
 

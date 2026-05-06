@@ -1,6 +1,6 @@
-# Calculator Cove — future planning
+# Calculator Cove — roadmap
 
-This document captures planned directions for the project (currently shipped as the multiplication connect-and-claim game). It is a living backlog, not a commitment order.
+Shipped locally (no online play yet): beach **Calculator Cove** branding, **vs computer** with three difficulties, **stats + `/stats`** (per-player W/L by mode key + quit counts), **multi-region boards** (1 / 2 / 4 quadrants) with per-turn **active quadrant** targeting, and **Island fleets** (battleship-style placement + factor aiming). See **`QUESTIONS.md`** for defaults you may want to revisit.
 
 ---
 
