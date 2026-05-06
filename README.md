@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# Calculator Cove
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Multiplication connect-four style game for **Gojito Games**. Tiers match the platform:
 
-Currently, two official plugins are available:
+| Tier | Meaning (short) |
+|------|------------------|
+| **Bean** | Logged out / cookie-only |
+| **Beef** | Free account (Firestore); future online leaderboards & competitive modes will require at least this |
+| **Guac** | Paid entitlement (authoritative state in Workers KV, synced from Stripe or manual admin grant) |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Guac-gated previews (Battleship / larger boards) show a placeholder screen until gameplay is ready.
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+cp .env.example .env.local
+# fill VITE_FIREBASE_* and VITE_GOJITO_API_URL
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Selective Guac grant (your accounts)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Paid tier is stored in **`gojito-backend`** KV. Do **not** put `GOJITO_ADMIN_SECRET` in any `VITE_*` variable.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**Option A — CLI (recommended)** from `gojito-backend/`:
+
+```bash
+GOJITO_API_URL="https://<worker>" GOJITO_ADMIN_SECRET="$GOJITO_ADMIN_SECRET" \
+  npm run grant-guac -- "<Firebase UID>" true
 ```
+
+Use `false` instead of `true` to revoke Guac (user becomes Beef).
+
+**Option B — curl** — same as documented in `gojito-backend/README.md` (`POST /api/admin/entitlements`).
+
+After granting, in Calculator Cove open **Account → Refresh Guac access** (or sign out/in).
+
+In **development only**, the Account dialog includes a collapsible **Developer** section with your Firebase UID and ready-to-run curl snippets (still using `$GOJITO_ADMIN_SECRET` only on your machine).
+
+## Scripts
+
+- `npm run dev` — Vite dev server  
+- `npm run build` — production build  
+- `npm run test` — Vitest  

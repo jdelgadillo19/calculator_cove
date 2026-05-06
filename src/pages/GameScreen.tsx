@@ -30,6 +30,9 @@ import {
 } from '../game/session'
 import { shuffledProducts } from '../game/shuffleBoard'
 import type { MatchState, SelectorKind } from '../game/types'
+import { AccountToolbar } from '../components/AccountToolbar'
+import { useAuth } from '../lib/AuthContext'
+import { PremiumPlayPlaceholder } from './PremiumPlayPlaceholder'
 
 /** Engine copy for a claimed product — shown to players as simpler wording above the grid. */
 const ENGINE_NOTE_ALREADY_CLAIMED = 'That product is already claimed.'
@@ -48,6 +51,7 @@ function displaySnapbackReason(note: string): string {
 export function GameScreen() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { hasGuacEntitlement, isLoadingAuth } = useAuth()
   const settings =
     (location.state as MenuGameSettings | undefined) ??
     parseStoredGameSettings(sessionStorage.getItem(SESSION_SETTINGS_KEY))
@@ -57,11 +61,36 @@ export function GameScreen() {
     if (!settings) navigate('/', { replace: true })
   }, [settings, navigate])
 
+  useEffect(() => {
+    if (!settings?.premiumFeature) return
+    if (isLoadingAuth) return
+    if (!hasGuacEntitlement) {
+      navigate('/', {
+        replace: true,
+        state: { paywallBlocked: settings.premiumFeature },
+      })
+    }
+  }, [settings, hasGuacEntitlement, isLoadingAuth, navigate])
+
   if (!settings) {
     return (
       <div className="mc-wood-bg flex min-h-screen items-center justify-center text-[var(--color-mc-yellow)]">
         Loading…
       </div>
+    )
+  }
+
+  if (settings.premiumFeature && (isLoadingAuth || !hasGuacEntitlement)) {
+    return (
+      <div className="mc-wood-bg flex min-h-screen items-center justify-center text-[var(--color-mc-yellow)]">
+        Loading…
+      </div>
+    )
+  }
+
+  if (settings.premiumFeature) {
+    return (
+      <PremiumPlayPlaceholder settings={settings} onMenu={() => navigate('/')} />
     )
   }
 
@@ -130,6 +159,7 @@ function GameSession({
   const colors = [settings.playerOneColor, settings.playerTwoColor] as const
   const names = [settings.playerOneName, settings.playerTwoName]
   const playing = match.phase === 'playing'
+  const [showAccountInterruptDialog, setShowAccountInterruptDialog] = useState(false)
 
   const stageRef = useRef<HTMLDivElement>(null)
   const factorRailRef = useRef<HTMLDivElement>(null)
@@ -219,7 +249,12 @@ function GameSession({
   return (
     <div className="mc-wood-bg flex min-h-screen flex-col">
       <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 sm:px-6 sm:pt-4">
-        <span className="min-w-0" aria-hidden />
+        <div className="min-w-0">
+          <AccountToolbar
+            isGameBreakingState={playing}
+            onRequireSafeExit={() => setShowAccountInterruptDialog(true)}
+          />
+        </div>
         <h1 className="mc-title justify-self-center text-center text-lg sm:text-2xl">
           MULTIPLICATION GAME
         </h1>
@@ -324,6 +359,49 @@ function GameSession({
           onMenu={onMenu}
           onRematch={onRematch}
         />
+      )}
+
+      {showAccountInterruptDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowAccountInterruptDialog(false)
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Confirm account action"
+            className="w-full max-w-md rounded-xl border border-white/20 bg-neutral-900 p-5 text-white shadow-2xl"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-[var(--color-mc-yellow)]">Pause match for account action?</h2>
+            <p className="mt-2 text-sm text-yellow-100/80">
+              Opening account management during active gameplay can break turn flow. Continue to return to
+              the menu first, then open account controls.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAccountInterruptDialog(false)}
+                className="flex-1 rounded-lg border border-white/20 bg-black/40 py-2 text-sm hover:bg-black/55"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAccountInterruptDialog(false)
+                  onMenu()
+                }}
+                className="flex-1 rounded-lg bg-[var(--color-mc-purple)] py-2 text-sm font-bold text-[var(--color-mc-yellow)] hover:bg-[var(--color-mc-purple-deep)]"
+              >
+                Return to menu
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

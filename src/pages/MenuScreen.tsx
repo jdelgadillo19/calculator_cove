@@ -1,10 +1,16 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   DEFAULT_SETTINGS,
   SESSION_SETTINGS_KEY,
   type MenuGameSettings,
 } from '../game/session'
+import { AccountToolbar } from '../components/AccountToolbar'
+import { useAuth } from '../lib/AuthContext'
+
+type MenuLocationState = {
+  paywallBlocked?: NonNullable<MenuGameSettings['premiumFeature']>
+}
 
 /** One-click presets for player tile colors (distinct on the wood UI). */
 const PLAYER_TILE_COLOR_PRESETS = [
@@ -24,6 +30,9 @@ const PLAYER_TILE_COLOR_PRESETS = [
 
 export function MenuScreen() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { hasGuacEntitlement } = useAuth()
+  const [gateNotice, setGateNotice] = useState<string | null>(null)
   const [mode, setMode] = useState(DEFAULT_SETTINGS.mode)
   const [shuffleSeed, setShuffleSeed] = useState('')
   const [p1Name, setP1Name] = useState(DEFAULT_SETTINGS.playerOneName)
@@ -31,10 +40,19 @@ export function MenuScreen() {
   const [p1Color, setP1Color] = useState(DEFAULT_SETTINGS.playerOneColor)
   const [p2Color, setP2Color] = useState(DEFAULT_SETTINGS.playerTwoColor)
 
-  const startGame = () => {
+  useEffect(() => {
+    const st = location.state as MenuLocationState | null
+    if (!st?.paywallBlocked) return
+    setGateNotice(
+      'That preview needs Guac tier — sign in with Google using a Gojito Games account that includes Gojito’s Guacamole Gang.',
+    )
+    navigate(location.pathname, { replace: true, state: {} })
+  }, [location.pathname, location.state, navigate])
+
+  const buildBaseSettings = (): Omit<MenuGameSettings, 'premiumFeature'> => {
     const seedNum =
       shuffleSeed.trim() === '' ? undefined : Number.parseInt(shuffleSeed, 10)
-    const settings: MenuGameSettings = {
+    return {
       mode,
       shuffleSeed:
         mode === 'shuffled' && seedNum !== undefined && !Number.isNaN(seedNum)
@@ -47,6 +65,32 @@ export function MenuScreen() {
       playerOneColor: p1Color,
       playerTwoColor: p2Color,
     }
+  }
+
+  const startPremium = (premiumFeature: NonNullable<MenuGameSettings['premiumFeature']>) => {
+    if (!hasGuacEntitlement) {
+      setGateNotice(
+        'Recommended: sign in with Google using an account on Gojito’s Guacamole Gang (Guac tier), then use Account → Refresh Guac access.',
+      )
+      return
+    }
+    const settings: MenuGameSettings = {
+      ...buildBaseSettings(),
+      premiumFeature,
+    }
+    try {
+      sessionStorage.setItem(SESSION_SETTINGS_KEY, JSON.stringify(settings))
+    } catch {
+      /* ignore quota / private mode */
+    }
+    navigate('/play', { state: settings })
+  }
+
+  const startGame = () => {
+    const settings: MenuGameSettings = {
+      ...buildBaseSettings(),
+      premiumFeature: null,
+    }
     try {
       sessionStorage.setItem(SESSION_SETTINGS_KEY, JSON.stringify(settings))
     } catch {
@@ -58,6 +102,24 @@ export function MenuScreen() {
   return (
     <div className="mc-wood-bg flex min-h-screen flex-col text-neutral-100">
       <header className="flex flex-col items-center px-4 pb-3 pt-5 text-center sm:px-8">
+        <div className="mb-3 w-full max-w-lg">
+          <AccountToolbar isGameBreakingState={false} />
+        </div>
+        {gateNotice && (
+          <div
+            role="status"
+            className="mx-auto mb-3 flex max-w-lg flex-wrap items-center justify-center gap-2 rounded-lg border border-amber-400/35 bg-amber-500/10 px-3 py-2 text-xs text-amber-50"
+          >
+            <span className="text-left">{gateNotice}</span>
+            <button
+              type="button"
+              onClick={() => setGateNotice(null)}
+              className="shrink-0 rounded-md border border-amber-300/40 px-2 py-1 font-semibold text-amber-100 hover:bg-amber-400/10"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <h1 className="mc-title text-2xl sm:text-4xl">MULTIPLICATION GAME</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-yellow-100/75">
           Connect four claimed cells in a row on the grid. Each turn, move one yellow arrow to
@@ -123,11 +185,80 @@ export function MenuScreen() {
             onClick={startGame}
             className="mt-7 w-full rounded-xl bg-[var(--color-mc-purple)] py-3 text-lg font-bold text-[var(--color-mc-yellow)] shadow-lg transition hover:bg-[var(--color-mc-purple-deep)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-mc-yellow)]"
           >
-            Play
+            Play (recommended)
           </button>
+
+          <h2 className="mb-3 mt-10 text-lg font-semibold text-[var(--color-mc-yellow)]">
+            Guac previews
+          </h2>
+          <p className="mx-auto mb-4 max-w-md text-xs text-yellow-100/65">
+            Battleship rules and expanded boards are{' '}
+            <strong>Gojito’s Guacamole Gang</strong> (Guac tier) previews — gameplay is stubbed while we
+            harden billing and entitlements.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+            <PremiumFeatureCard
+              title="Battleship mode"
+              description="Alternate ruleset — placeholder screen for now."
+              locked={!hasGuacEntitlement}
+              onSelect={() => startPremium('battleship')}
+            />
+            <PremiumFeatureCard
+              title="12 × 6 board"
+              description="Wide grid preview — placeholder screen for now."
+              locked={!hasGuacEntitlement}
+              onSelect={() => startPremium('board_12x6')}
+            />
+            <PremiumFeatureCard
+              title="12 × 12 board"
+              description="Large grid preview — placeholder screen for now."
+              locked={!hasGuacEntitlement}
+              onSelect={() => startPremium('board_12x12')}
+            />
+          </div>
         </section>
       </main>
     </div>
+  )
+}
+
+function PremiumFeatureCard({
+  title,
+  description,
+  locked,
+  onSelect,
+}: {
+  title: string
+  description: string
+  locked: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={[
+        'flex w-full rounded-lg border-2 p-4 text-left transition sm:max-w-[220px] sm:flex-1',
+        locked
+          ? 'border-white/10 bg-black/15 hover:border-white/20'
+          : 'border-[var(--color-mc-yellow)] bg-yellow-400/10 hover:border-[var(--color-mc-yellow)]',
+      ].join(' ')}
+    >
+      <div className="flex w-full items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold text-[var(--color-mc-yellow)]">{title}</div>
+          <p className="mt-1 text-xs text-yellow-100/70">{description}</p>
+        </div>
+        <span
+          className={[
+            'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+            locked ? 'border-white/25 text-yellow-100/75' : 'border-[var(--color-mc-yellow)] text-[var(--color-mc-yellow)]',
+          ].join(' ')}
+        >
+          {locked ? 'Guac' : 'Open'}
+        </span>
+      </div>
+    </button>
   )
 }
 
